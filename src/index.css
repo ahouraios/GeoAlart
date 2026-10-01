@@ -1,0 +1,77 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+@layer base {
+  body {
+    font-family: 'Vazirmatn', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+/* Leaflet Customizations */
+.leaflet-container {
+  font-family: 'Vazirmatn', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  width: 100%;
+  height: 100%;
+  background-color: #f8fafc;
+}
+
+/* Custom Popup Style */
+.leaflet-popup-content-wrapper {
+  background: #ffffff !important;
+  border-radius: 18px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.12), 0 4px 6px -4px rgba(0, 0, 0, 0.08) !important;
+  padding: 4px !important;
+}
+
+.leaflet-popup-content {
+  margin: 10px 12px !important;
+  line-height: 1.5 !important;
+}
+
+.leaflet-popup-tip {
+  background: #ffffff !important;
+}
+
+.custom-dest-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.custom-user-marker {
+  background: transparent !important;
+  border: none !important;
+  overflow: visible !important;
+}
+
+.custom-waypoint-marker {
+  background: transparent !important;
+  border: none !important;
+  overflow: visible !important;
+}
+
+/* Route animations */
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.route-dash-animated {
+  animation: dash-flow 1.2s linear infinite;
+}
+
+/* Subtle animated bounce for arrival/proximity banners */
+@keyframes bounce-short {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-bounce-short {
+  animation: bounce-short 1.5s ease-in-out infinite;
+}
+

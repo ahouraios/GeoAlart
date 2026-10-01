@@ -1,0 +1,11 @@
+{
+  "name": "ردیاب موقعیت و هشدار محدوده (Geofence GPS)",
+  "description": "وباپلیکیشن پیشرونده (PWA) با نقشه زنده، ردیابی دقیق GPS، سیستم هشدار ورود به محدوده (Geofencing)، اعلان، صدا و ویبره",
+  "requestFramePermissions": [
+    "geolocation",
+    "notifications"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
