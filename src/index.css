@@ -42,6 +42,11 @@
   background: transparent !important;
   border: none !important;
   overflow: visible !important;
+  z-index: 10000 !important;
+}
+
+.custom-user-marker #user-direction-rotator {
+  will-change: transform;
 }
 
 .custom-waypoint-marker {

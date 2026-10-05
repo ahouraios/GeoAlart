@@ -133,6 +133,24 @@ class SoundEngine {
     osc.start();
     osc.stop(ctx.currentTime + 0.09);
   }
+
+  /**
+   * Persian Voice Guidance / Speech announcement
+   */
+  public speakPersian(text: string) {
+    if (this.isMuted) return;
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'fa-IR';
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      // ignore
+    }
+  }
 }
 
 export const soundEngine = new SoundEngine();

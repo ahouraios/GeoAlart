@@ -2,6 +2,7 @@ import React from 'react';
 import { ActiveRoute, Destination } from '../types';
 import { formatDistance, toPersianDigits } from '../utils/geo';
 import { formatDuration } from '../utils/routing';
+import { soundEngine } from '../utils/audio';
 
 interface TripRoutePanelProps {
   activeRoute: ActiveRoute | null;
@@ -13,6 +14,8 @@ interface TripRoutePanelProps {
   onFitRouteBounds: () => void;
   isAutoFollowing: boolean;
   onToggleAutoFollow: () => void;
+  onAdvanceStop?: () => void;
+  onLaunchPresetTrip?: (type: 'home-work-mom') => void;
 }
 
 export const TripRoutePanel: React.FC<TripRoutePanelProps> = ({
@@ -25,16 +28,42 @@ export const TripRoutePanel: React.FC<TripRoutePanelProps> = ({
   onFitRouteBounds,
   isAutoFollowing,
   onToggleAutoFollow,
+  onAdvanceStop,
+  onLaunchPresetTrip,
 }) => {
   const [isAddingStopOpen, setIsAddingStopOpen] = React.useState(false);
 
-  if (!activeRoute) return null;
+  // If no active route, show a sleek floating quick-launcher for multi-stop journeys
+  if (!activeRoute) {
+    return (
+      <div className="absolute top-16 left-3 sm:left-4 z-20 pointer-events-auto">
+        <button
+          type="button"
+          onClick={() => onLaunchPresetTrip?.('home-work-mom')}
+          className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white/95 hover:bg-white text-slate-800 border border-slate-200 shadow-lg backdrop-blur-md text-xs font-bold transition active:scale-95 group"
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
+          <span>شروع سفر ترتیبی: خانه ➔ محل کار ➔ خانه مامان</span>
+          <svg className="w-4 h-4 text-indigo-600 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
+        </button>
+      </div>
+    );
+  }
 
   // Unselected destinations that can be added to trip
   const existingStopIds = new Set(activeRoute.stops.map((s) => s.id));
   const availableDestinations = destinations.filter((d) => !existingStopIds.has(d.id));
 
   const isMultiStop = activeRoute.stops.length > 1;
+  const currentStop = activeRoute.stops[activeRoute.activeStopIndex];
+
+  const handleVoiceAnnounce = () => {
+    if (!currentStop) return;
+    const msg = `شما در مسیر سفر هستید. هدف فعلی: ${currentStop.name}. با رسیدن به شعاع ۲۰ متر، اعلام ورود انجام می‌شود.`;
+    soundEngine.speakPersian(msg);
+  };
 
   return (
     <div
@@ -51,24 +80,39 @@ export const TripRoutePanel: React.FC<TripRoutePanelProps> = ({
           </div>
           <div>
             <h3 className="text-xs font-extrabold text-slate-900 leading-tight">
-              {isMultiStop ? 'مسیر سفر چند مقصده' : 'مسیریابی به سمت مقصد'}
+              {isMultiStop ? 'سفر چند مقصده ترتیبی' : 'مسیریابی به سمت مقصد'}
             </h3>
             <p className="text-[10px] text-slate-500">
-              {activeRoute.source === 'osrm' ? 'بر اساس نقشه خیابان‌های واقعی' : 'محاسبه مستقیم جغرافیایی'}
+              دقت اعلام ورود: ۲۰ متر • هدایت مرحله به مرحله
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onClearTrip}
-          title="بستن مسیریابی"
-          className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-1">
+          {/* Voice Prompt Button */}
+          <button
+            type="button"
+            onClick={handleVoiceAnnounce}
+            title="اعلام صوتی راهنما با سخنگوی فارسی"
+            className="p-1 rounded-lg hover:bg-blue-50 text-blue-600 transition"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            </svg>
+          </button>
+
+          {/* Close Route */}
+          <button
+            type="button"
+            onClick={onClearTrip}
+            title="بستن مسیریابی"
+            className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Stats Summary Banner */}
@@ -98,6 +142,7 @@ export const TripRoutePanel: React.FC<TripRoutePanelProps> = ({
         {/* Ordered Destination Stops */}
         {activeRoute.stops.map((stop, index) => {
           const isTarget = index === activeRoute.activeStopIndex;
+          const isPast = index < activeRoute.activeStopIndex;
           const stopNumber = toPersianDigits(index + 1);
 
           return (
@@ -105,21 +150,30 @@ export const TripRoutePanel: React.FC<TripRoutePanelProps> = ({
               key={stop.id}
               className={`flex items-center justify-between gap-1.5 p-1.5 rounded-xl border text-xs transition ${
                 isTarget
-                  ? 'bg-blue-50/80 border-blue-300 ring-1 ring-blue-300/40'
+                  ? 'bg-blue-50/90 border-blue-400 ring-1 ring-blue-400/40 shadow-xs'
+                  : isPast
+                  ? 'bg-emerald-50/60 border-emerald-200 opacity-80'
                   : 'bg-white border-slate-200/80'
               }`}
             >
               <div className="flex items-center gap-2 min-w-0">
                 <span
                   className="w-5 h-5 rounded-full text-white text-[10px] font-black flex items-center justify-center flex-shrink-0 shadow-2xs"
-                  style={{ backgroundColor: stop.color || '#2563eb' }}
+                  style={{ backgroundColor: isPast ? '#10b981' : stop.color || '#2563eb' }}
                 >
-                  {stopNumber}
+                  {isPast ? '✓' : stopNumber}
                 </span>
-                <span className="font-bold text-slate-800 truncate">{stop.name}</span>
+                <span className={`font-bold truncate ${isPast ? 'line-through text-slate-500' : 'text-slate-800'}`}>
+                  {stop.name}
+                </span>
                 {isTarget && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-600 text-white font-bold whitespace-nowrap">
-                    هدف اول
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-600 text-white font-bold whitespace-nowrap animate-pulse">
+                    هدف فعلی
+                  </span>
+                )}
+                {isPast && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold whitespace-nowrap">
+                    رسیدید
                   </span>
                 )}
               </div>
@@ -127,7 +181,7 @@ export const TripRoutePanel: React.FC<TripRoutePanelProps> = ({
               {/* Stop Actions (Reorder / Remove) */}
               <div className="flex items-center gap-0.5 flex-shrink-0">
                 {/* Move Up */}
-                {index > 0 && (
+                {index > 0 && !isPast && (
                   <button
                     type="button"
                     onClick={() => onMoveStop(index, index - 1)}
@@ -140,7 +194,7 @@ export const TripRoutePanel: React.FC<TripRoutePanelProps> = ({
                   </button>
                 )}
                 {/* Move Down */}
-                {index < activeRoute.stops.length - 1 && (
+                {index < activeRoute.stops.length - 1 && !isPast && (
                   <button
                     type="button"
                     onClick={() => onMoveStop(index, index + 1)}
@@ -168,6 +222,17 @@ export const TripRoutePanel: React.FC<TripRoutePanelProps> = ({
           );
         })}
       </div>
+
+      {/* Advance stop early (Manual button) */}
+      {isMultiStop && activeRoute.activeStopIndex < activeRoute.stops.length - 1 && (
+        <button
+          type="button"
+          onClick={onAdvanceStop}
+          className="w-full py-1.5 px-2 mb-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-98 shadow-xs"
+        >
+          <span>تکمیل مرحله فعلی و رفتن به مقصد بعدی ➔</span>
+        </button>
+      )}
 
       {/* Add Another Destination Picker */}
       {isAddingStopOpen ? (

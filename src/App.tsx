@@ -86,7 +86,7 @@ export default function App() {
     return map;
   }, [location.latitude, location.longitude, destinations]);
 
-  // Geofence Evaluation Effect
+  // Geofence Evaluation & Sequential Trip Step Progress
   useEffect(() => {
     destinations.forEach((dest) => {
       const distance = distances[dest.id];
@@ -96,13 +96,21 @@ export default function App() {
       if (alertItem) {
         setActiveAlerts((prev) => [alertItem, ...prev.slice(0, 4)]);
 
-        // If arrived at the current active stop in the multi-destination trip, advance to next stop
+        // If arrived at the current active stop in the multi-destination trip, announce and advance
         if (alertItem.type === 'arrival' && activeRoute) {
           const currentStop = activeRoute.stops[activeRoute.activeStopIndex];
           if (currentStop && currentStop.id === dest.id) {
             if (activeRoute.activeStopIndex < activeRoute.stops.length - 1) {
+              const nextStop = activeRoute.stops[activeRoute.activeStopIndex + 1];
+              soundEngine.speakPersian(
+                `شما به ${currentStop.name} رسیدید! حرکت به سمت مقصد بعدی: ${nextStop.name}.`
+              );
               setActiveRoute((prev) =>
                 prev ? { ...prev, activeStopIndex: prev.activeStopIndex + 1 } : null
+              );
+            } else {
+              soundEngine.speakPersian(
+                `تبریک! شما به مقصد نهایی ${currentStop.name} رسیدید. سفر شما با موفقیت به پایان رسید.`
               );
             }
           }
@@ -159,10 +167,10 @@ export default function App() {
         longitude: dest.longitude,
         color: dest.color,
         radiusMeters: dest.radiusMeters,
-        arrivalRadiusMeters: dest.arrivalRadiusMeters,
+        arrivalRadiusMeters: dest.arrivalRadiusMeters || 20,
       };
 
-      // Set initial direct route immediately while full road route is computed
+      // Set initial direct route immediately while road route is computed
       setActiveRoute({
         coordinates: [
           [location.latitude, location.longitude],
@@ -176,7 +184,7 @@ export default function App() {
         isLoading: true,
       });
 
-      // Fetch precise road route
+      soundEngine.speakPersian(`مسیریابی به سمت ${dest.name} آغاز شد.`);
       recomputeRoute([stop], 0);
     },
     [location.latitude, location.longitude, distances, recomputeRoute]
@@ -192,7 +200,7 @@ export default function App() {
         longitude: dest.longitude,
         color: dest.color,
         radiusMeters: dest.radiusMeters,
-        arrivalRadiusMeters: dest.arrivalRadiusMeters,
+        arrivalRadiusMeters: dest.arrivalRadiusMeters || 20,
       };
 
       if (!activeRoute) {
@@ -200,16 +208,52 @@ export default function App() {
         return;
       }
 
-      // Avoid duplicates in the same trip
       if (activeRoute.stops.some((s) => s.id === dest.id)) {
         return;
       }
 
       const updatedStops = [...activeRoute.stops, stop];
+      soundEngine.speakPersian(`${dest.name} به مسیر سفر اضافه شد.`);
       recomputeRoute(updatedStops, activeRoute.activeStopIndex);
     },
     [activeRoute, handleRouteToDestination, recomputeRoute]
   );
+
+  // Quick preset launcher: "خانه ➔ محل کار ➔ خانه مامان"
+  const handleLaunchPresetTrip = useCallback(() => {
+    // Find or locate work and mom destinations
+    const workDest = destinations.find((d) => d.name.includes('کار') || d.category === 'work') || destinations[1] || destinations[0];
+    const momDest = destinations.find((d) => d.name.includes('مامان') || d.category === 'personal') || destinations[2] || destinations[0];
+
+    const stops: TripStop[] = [];
+    if (workDest) {
+      stops.push({
+        id: workDest.id,
+        name: workDest.name,
+        latitude: workDest.latitude,
+        longitude: workDest.longitude,
+        color: workDest.color,
+        radiusMeters: workDest.radiusMeters,
+        arrivalRadiusMeters: workDest.arrivalRadiusMeters || 20,
+      });
+    }
+    if (momDest && momDest.id !== workDest?.id) {
+      stops.push({
+        id: momDest.id,
+        name: momDest.name,
+        latitude: momDest.latitude,
+        longitude: momDest.longitude,
+        color: momDest.color,
+        radiusMeters: momDest.radiusMeters,
+        arrivalRadiusMeters: momDest.arrivalRadiusMeters || 20,
+      });
+    }
+
+    if (stops.length > 0) {
+      soundEngine.speakPersian(`سفر ترتیبی آغاز شد. حرکت به سمت مقصد اول: ${stops[0].name}.`);
+      recomputeRoute(stops, 0);
+    }
+  }, [destinations, recomputeRoute]);
 
   // Remove a stop from the active trip
   const handleRemoveStopFromTrip = useCallback(
@@ -241,12 +285,24 @@ export default function App() {
     [activeRoute, recomputeRoute]
   );
 
+  // Manual advance to next stop in trip
+  const handleAdvanceTripStop = useCallback(() => {
+    if (!activeRoute) return;
+    if (activeRoute.activeStopIndex < activeRoute.stops.length - 1) {
+      const nextIdx = activeRoute.activeStopIndex + 1;
+      const nextStop = activeRoute.stops[nextIdx];
+      soundEngine.speakPersian(`حرکت به سمت مقصد بعدی: ${nextStop.name}`);
+      setActiveRoute((prev) => (prev ? { ...prev, activeStopIndex: nextIdx } : null));
+    }
+  }, [activeRoute]);
+
   // Clear trip
   const handleClearTrip = useCallback(() => {
     setActiveRoute(null);
+    soundEngine.speakPersian('مسیریابی بسته شد.');
   }, []);
 
-  // Update route when user moves (debounced every 3 seconds if location shifted)
+  // Update route when user moves (debounced every 2.5s)
   useEffect(() => {
     if (!activeRoute || activeRoute.stops.length === 0) return;
 
@@ -378,7 +434,7 @@ export default function App() {
         }}
       />
 
-      {/* GPS Error Alert (if GPS is denied or unavailable) */}
+      {/* GPS Error Alert */}
       {errorMessage && !isSimulating && locationSource !== 'ip' && (
         <div className="relative z-30 px-4 py-2 bg-rose-50 border-b border-rose-200 text-xs text-rose-800 flex items-center justify-between gap-2 shadow-xs">
           <div className="flex items-center gap-2">
@@ -425,6 +481,7 @@ export default function App() {
           onToggleDestination={handleToggleDestination}
           onDeleteDestination={handleDeleteDestination}
           onAddDestinationToTrip={handleAddDestinationToTrip}
+          onAdvanceTripStop={handleAdvanceTripStop}
           isSimulating={isSimulating}
           simulationClickMode={simulationClickMode}
           onSimulateMoveUser={(lat, lon) => setSimulatedLocation(lat, lon)}
@@ -441,12 +498,11 @@ export default function App() {
           onRemoveStopFromTrip={handleRemoveStopFromTrip}
           onMoveStop={handleMoveStop}
           onClearTrip={handleClearTrip}
-          onFitRouteBounds={() => {
-            // Triggered via bound fitting in MapContainer
-            setIsAutoFollowing(false);
-          }}
+          onFitRouteBounds={() => setIsAutoFollowing(false)}
           isAutoFollowing={isAutoFollowing}
           onToggleAutoFollow={() => setIsAutoFollowing((prev) => !prev)}
+          onAdvanceStop={handleAdvanceTripStop}
+          onLaunchPresetTrip={handleLaunchPresetTrip}
         />
 
         {/* GPS Simulation Floating Panel */}
